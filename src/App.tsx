@@ -5,7 +5,8 @@ import {
   StaticTreeDataProvider,
   TreeRef,
   TreeItem,
-  TreeItemIndex
+  TreeItemIndex,
+  DraggingPosition
 } from 'react-complex-tree';
 import { Search, MoreVertical, ChevronRight, ChevronDown, X, FolderPlus, Plus, ToggleLeft, ToggleRight } from 'lucide-react';
 import { leagueStructure } from './data';
@@ -51,14 +52,6 @@ function App() {
   const treeRef = useRef<TreeRef>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   
-  // Check if tree is empty - no children under root
-  const isTreeEmpty = useCallback(() => {
-    if (showEmptyState) return true;
-    
-    const rootItem = items['root'];
-    return !rootItem || !rootItem.children || rootItem.children.length === 0;
-  }, [items, showEmptyState]);
-
   // Create a new data provider whenever items change
   const dataProvider = new StaticTreeDataProvider(
     items,
@@ -70,6 +63,61 @@ function App() {
       }
     })
   );
+  
+  // Handle converting an item to a folder when it receives a drop
+  const handleItemDrop = useCallback((draggedItems: TreeItem<ItemData>[], target: DraggingPosition) => {
+    let targetItemWasConverted = false;
+    let targetItemId: TreeItemIndex | null = null;
+    
+    setItems(prevItems => {
+      const newItems = { ...prevItems };
+      
+      // If the drop target is an item (not between items)
+      if (target.targetType === 'item') {
+        const targetItem = newItems[target.targetItem];
+        targetItemId = target.targetItem;
+        
+        // Check if this item needs to be converted to a folder
+        targetItemWasConverted = targetItem && !targetItem.children;
+        
+        // Initialize children array if it doesn't exist
+        if (targetItem && !targetItem.children) {
+          targetItem.children = [];
+        }
+        
+        // Ensure the isFolder property is set for library compatibility
+        if (targetItem && !targetItem.isFolder) {
+          targetItem.isFolder = true;
+        }
+      }
+      
+      return newItems;
+    });
+    
+    // If we converted a non-folder to a folder, we need to force update
+    if (targetItemWasConverted && targetItemId) {
+      // Force a refresh and ensure expansion
+      setTimeout(() => {
+        // Force the tree to update specifically for this item
+        if (dataProvider.onDidChangeTreeDataEmitter) {
+          dataProvider.onDidChangeTreeDataEmitter.emit([targetItemId as TreeItemIndex]);
+        }
+        
+        // Expand the newly converted folder
+        if (treeRef.current) {
+          treeRef.current.expandItem(targetItemId as TreeItemIndex);
+        }
+      }, 50);
+    }
+  }, [dataProvider, treeRef]);
+
+  // Check if tree is empty - no children under root
+  const isTreeEmpty = useCallback(() => {
+    if (showEmptyState) return true;
+    
+    const rootItem = items['root'];
+    return !rootItem || !rootItem.children || rootItem.children.length === 0;
+  }, [items, showEmptyState]);
 
   // Update data provider when items change
   useEffect(() => {
@@ -227,15 +275,18 @@ function App() {
         canRename: true
       };
       
-      // Ensure parent has children array
+      // Ensure parent has children array and is marked as a folder
       const parentItem = newItems[String(parentId)];
       if (parentItem) {
+        // Make sure parent is marked as a folder
+        parentItem.isFolder = true;
+        
         // Initialize children array if it doesn't exist
         if (!parentItem.children) {
           parentItem.children = [];
         }
-        // Add new group as child
-        parentItem.children = [...(parentItem.children || []), newId];
+        // Add new group as the first child instead of at the end
+        parentItem.children = [newId, ...(parentItem.children || [])];
       }
       
       return newItems;
@@ -243,18 +294,26 @@ function App() {
     
     closeContextMenu();
 
-    // Expand parent and start renaming new group
+    // Defer expansion and renaming to ensure state updates have been applied
     setTimeout(() => {
       if (treeRef.current) {
+        // Make sure the parent is expanded
         treeRef.current.expandItem(String(parentId));
+        
+        // Wait a bit to ensure expansion has taken effect
         setTimeout(() => {
           if (treeRef.current) {
             console.log("Starting rename for new item", newId);
+            // Force a refresh of the tree before starting rename
+            if (dataProvider.onDidChangeTreeDataEmitter) {
+              dataProvider.onDidChangeTreeDataEmitter.emit([String(parentId), newId]);
+            }
+            // Now start the rename operation
             treeRef.current.startRenamingItem(newId);
           }
         }, 100);
       }
-    }, 100);
+    }, 50);
   };
 
   const handleDelete = (itemId: TreeItemIndex) => {
@@ -289,22 +348,16 @@ function App() {
       );
 
       if (parentId && originalItem) {
-        // Create duplicate with empty children array if it's a folder
-        newItems[newId] = {
-          index: newId,
-          isFolder: originalItem.isFolder,
-          children: originalItem.isFolder ? [] : undefined,
-          data: {
-            name: `${originalItem.data.name} (Copy)`,
-            type: originalItem.data.type
-          },
-          canMove: true,
-          canRename: true
-        };
+        // Deep copy of the item including all nested children
+        newItems[newId] = deepCopyItem(originalItem, newId, newItems);
 
+        // Insert the duplicate directly after the original in parent's children array
         const parentItem = newItems[parentId];
         if (parentItem.children) {
-          parentItem.children = [...parentItem.children, newId];
+          const originalIndex = parentItem.children.indexOf(String(itemId));
+          const newChildren = [...parentItem.children];
+          newChildren.splice(originalIndex + 1, 0, newId);
+          parentItem.children = newChildren;
         }
       }
       
@@ -329,6 +382,46 @@ function App() {
         }, 100);
       }
     }, 100);
+  };
+
+  // Helper function to deep copy an item and all its children
+  const deepCopyItem = (item: LeagueItem, newId: string, allItems: Record<TreeItemIndex, LeagueItem>): LeagueItem => {
+    // Create a new copy with the specified ID
+    const newItem: LeagueItem = {
+      index: newId,
+      isFolder: item.isFolder,
+      data: {
+        name: `${item.data.name} (Copy)`,
+        type: item.data.type
+      },
+      canMove: true,
+      canRename: true
+    };
+    
+    // If the original item has children, copy them recursively
+    if (item.children && item.children.length > 0) {
+      newItem.children = [];
+      
+      // For each child of the original item
+      item.children.forEach(childId => {
+        const childItem = allItems[childId];
+        if (childItem) {
+          // Create a new ID for the child
+          const newChildId = `${newId}-${childId}-${Date.now() + Math.floor(Math.random() * 1000)}`;
+          
+          // Recursively copy the child and all its descendants
+          const newChildItem = deepCopyItem(childItem, newChildId, allItems);
+          
+          // Add the copied child to the new items collection
+          allItems[newChildId] = newChildItem;
+          
+          // Add the child reference to the parent's children array
+          newItem.children!.push(newChildId);
+        }
+      });
+    }
+    
+    return newItem;
   };
 
   // Function to highlight search matches in the title
@@ -367,14 +460,12 @@ function App() {
         className="context-menu fixed z-50"
         style={{ top: contextMenu.y, left: contextMenu.x }}
       >
-        {item.isFolder && (
-          <button 
-            className="context-menu-item"
-            onClick={() => handleAddSubGroup(contextMenu.itemId)}
-          >
-            Add Sub-Group
-          </button>
-        )}
+        <button 
+          className="context-menu-item"
+          onClick={() => handleAddSubGroup(contextMenu.itemId)}
+        >
+          Add Sub-Group
+        </button>
         <button 
           className="context-menu-item"
           onClick={() => handleEdit(contextMenu.itemId)}
@@ -682,9 +773,10 @@ function App() {
               canDragAndDrop={true}
               canReorderItems={true}
               canDropOnFolder={true}
-              canDropOnNonFolder={false}
+              canDropOnNonFolder={true}
               canRename={true}
               onRenameItem={handleRenameItem}
+              onDrop={handleItemDrop}
               // Disable built-in search UI
               canSearch={false}
               canSearchByStartingTyping={false}
@@ -703,12 +795,12 @@ function App() {
               // @ts-ignore - The UncontrolledTreeEnvironment supports selectBehavior but TypeScript doesn't recognize it
               selectBehavior={customSelectBehavior}
               renderItemArrow={({ item, context }) => (
-                <div className="w-6 h-6 flex items-center justify-center">
-                  {item.isFolder && item.children && item.children.length > 0 ? (
+                <div className="w-5 h-5 flex items-center justify-center">
+                  {item.children && item.children.length > 0 ? (
                     context.isExpanded ? (
-                      <ChevronDown className="w-4 h-4 text-secondary" />
+                      <ChevronDown className="w-3.5 h-3.5 text-secondary" />
                     ) : (
-                      <ChevronRight className="w-4 h-4 text-secondary" />
+                      <ChevronRight className="w-3.5 h-3.5 text-secondary" />
                     )
                   ) : null}
                 </div>
@@ -750,10 +842,10 @@ function App() {
                 >
                   <div
                     {...context.itemContainerWithoutChildrenProps}
-                    style={{ paddingLeft: `${depth * 24}px` }}
+                    style={{ paddingLeft: `${depth * 16}px` }}
                     className={[
                       'rct-tree-item-title-container',
-                      item.isFolder && 'rct-tree-item-title-container-isFolder',
+                      item.children && 'rct-tree-item-title-container-isFolder',
                       context.isSelected && 'rct-tree-item-title-container-selected',
                       context.isExpanded && 'rct-tree-item-title-container-expanded',
                       context.isFocused && 'rct-tree-item-title-container-focused',

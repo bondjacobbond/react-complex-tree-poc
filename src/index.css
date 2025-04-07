@@ -114,11 +114,17 @@ html, body, input, button, select, textarea {
   border-left: 3px solid var(--primary);
 }
 
+/* Avoid double-styling selected items */
+.rct-tree-item-li[aria-selected="true"] > .rct-tree-item-title-container {
+  padding-left: calc(0.75rem - 3px);
+}
+
 /* Indentation styling - now handled in the renderItem function */
 .rct-tree-item-title-container {
   display: flex;
   align-items: center;
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid rgba(229, 231, 235, 0.5); /* Very light gray separator */
 }
 
 .rct-tree-item {
@@ -139,8 +145,8 @@ html, body, input, button, select, textarea {
   transition-duration: 200ms;
   cursor: pointer;
   width: 100%;
-  padding: 8px 16px !important;
-  margin: 1px 0 !important;
+  padding: 4px 12px !important;
+  margin: 0 0 !important;
   border: none;
   background: transparent;
   font-family: var(--font-sans);
@@ -188,11 +194,6 @@ html, body, input, button, select, textarea {
 /* Change chevron color for selected items */
 .rct-tree-item-title-container-selected svg {
   color: var(--primary) !important;
-}
-
-/* Remove the previously added border since we're using the li element for the border now */
-.rct-tree-item-li[aria-selected="true"] {
-  border-left: 3px solid var(--primary);
 }
 
 /* Focused Item Styling */
@@ -582,4 +583,30 @@ html, body, input, button, select, textarea {
 .toggle-button:focus {
   outline: none;
   box-shadow: 0 0 0 2px rgba(13, 71, 116, 0.2);
+}
+
+/* Make the tree more compact */
+.rct-tree-items-container {
+  margin: 0;
+  padding: 0;
+}
+
+.rct-tree-items-container > .rct-tree-item-li {
+  margin-bottom: 0;
+}
+
+/* Remove border from selected items and last child */
+.rct-tree-item-title-container-selected,
+.rct-tree-item-title-container:last-child {
+  border-bottom: none;
+}
+
+/* Remove border when parent is selected to avoid double lines */
+.rct-tree-item-li[aria-selected="true"] .rct-tree-item-title-container {
+  border-bottom: none;
+}
+
+/* Also remove border from expanded items, as they will have children with their own borders */
+.rct-tree-item-title-container-expanded {
+  border-bottom: none;
 }

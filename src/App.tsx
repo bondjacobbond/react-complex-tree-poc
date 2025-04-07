@@ -611,7 +611,7 @@ function App() {
   const customSelectBehavior = {
     multiSelectWithKeyboard: false,
     autoSelectChildrenWhenPrimarySelectsFolder: true,
-    mouseSelect: (itemElement: HTMLElement, mouseEvent: React.MouseEvent): SelectionAction => {
+    mouseSelect: (itemElement: HTMLElement): SelectionAction => {
       const isSelected = itemElement.getAttribute('aria-selected') === 'true';
       return {
         primary: !isSelected,

@@ -625,6 +625,11 @@ function App() {
       className="min-h-screen bg-gray-50 p-8"
       onClick={closeContextMenu}
     >
+      {/* React version indicator */}
+      <div className="fixed top-4 left-4 text-sm text-gray-600 bg-white px-3 py-1.5 rounded-full shadow-sm border border-gray-200">
+        👴 React v{React.version}
+      </div>
+
       {/* Title heading for the POC */}
       <div className="mb-4 p-4 bg-bg-primary border border-primary rounded-lg">
         <h1 className="text-primary font-bold text-2xl">React-Complex-Tree POC</h1>

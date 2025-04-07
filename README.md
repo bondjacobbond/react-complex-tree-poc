@@ -2,6 +2,8 @@
 
 A simple proof of concept using react-complex-tree to create a hierarchical tree component.
 
+Try it [here](https://react-complex-tree-poc.vercel.app)!
+
 ## Quick Start
 
 ```bash

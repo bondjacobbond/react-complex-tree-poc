@@ -1,0 +1,585 @@
+/* Define CSS variables that match our Tailwind color scheme */
+:root {
+  /* Colors */
+  --accent: #F7B500;
+  --secondary: #7C9CB4;
+  --primary: #0D4774;
+  --tertiary: #A6BCCC;
+  --disabled: #DBE4EB;
+  --borderPrimary: #DAE6F0;
+  --borderSeparator: #E2E7EB;
+  --bgPrimary: #F3F7FA;
+  --bgSecondary: #FAFCFD;
+  --bgOverlay: rgba(0, 0, 0, 0.5);
+  --bgFields: rgba(13, 71, 116, 0.04);
+  --bgFieldsDisabled: #DDE3EA;
+  --error: #e02020;
+  --success: #24C875;
+  --warning: #FA771E;
+  
+  /* Typography */
+  --font-sans: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-monospace: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+}
+
+/* Apply fonts globally */
+html, body, input, button, select, textarea {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Basic CSS utility classes since Tailwind was removed */
+.min-h-screen { min-height: 100vh; }
+.p-8 { padding: 2rem; }
+.p-6 { padding: 1.5rem; }
+.p-4 { padding: 1rem; }
+.p-1 { padding: 0.25rem; }
+.mb-4 { margin-bottom: 1rem; }
+.mb-6 { margin-bottom: 1.5rem; }
+.ml-4 { margin-left: 1rem; }
+.max-w-4xl { max-width: 56rem; }
+.mx-auto { margin-left: auto; margin-right: auto; }
+.w-full { width: 100%; }
+.bg-gray-50 { background-color: #F9FAFB; }
+.bg-white { background-color: white; }
+.bg-bg-primary { background-color: var(--bgPrimary); }
+.border { border-width: 1px; }
+.border-gray-200 { border-color: #E5E7EB; }
+.border-primary { border-color: var(--primary); }
+.border-border-primary { border-color: var(--borderPrimary); }
+.rounded-lg { border-radius: 0.5rem; }
+.rounded-xl { border-radius: 0.75rem; }
+.shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
+.text-primary { color: var(--primary); }
+.text-secondary { color: var(--secondary); }
+.text-accent { color: var(--accent); }
+.text-gray-400 { color: #9CA3AF; }
+.text-red-600 { color: #DC2626; }
+.hover\:bg-red-50:hover { background-color: #FEF2F2; }
+.font-bold { font-weight: var(--font-weight-bold); }
+.font-semibold { font-weight: var(--font-weight-semibold); }
+.py-0\.5 { padding-top: 0.125rem; padding-bottom: 0.125rem; }
+.relative { position: relative; }
+.absolute { position: absolute; }
+.right-4 { right: 1rem; }
+.top-1\/2 { top: 50%; }
+.-translate-y-1\/2 { transform: translateY(-50%); }
+.fixed { position: fixed; }
+.z-50 { z-index: 50; }
+.focus\:outline-none:focus { outline: none; }
+.focus\:ring-2:focus { box-shadow: 0 0 0 2px rgba(13, 71, 116, 0.5); }
+.focus\:ring-primary:focus { box-shadow: 0 0 0 2px var(--primary); }
+.focus\:border-transparent:focus { border-color: transparent; }
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+.w-6 { width: 1.5rem; }
+.h-6 { height: 1.5rem; }
+.w-4 { width: 1rem; }
+.h-4 { height: 1rem; }
+.gap-2 { gap: 0.5rem; }
+.text-lg { font-size: var(--font-size-lg); }
+
+/* Tree Component Custom Styling */
+.rct-tree-root {
+  font-family: var(--font-sans);
+  color: var(--primary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+
+/* Base structure styling */
+.rct-tree-item-li {
+  --rct-item-height: auto;
+  position: relative;
+}
+
+/* Added left border styling for selection */
+.rct-tree-item-li[aria-selected="true"] {
+  border-left: 3px solid var(--primary);
+}
+
+/* Indentation styling - now handled in the renderItem function */
+.rct-tree-item-title-container {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+}
+
+.rct-tree-item {
+  position: relative;
+}
+
+.rct-tree-item-title {
+  color: var(--primary);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+}
+
+.rct-tree-item-button {
+  background-color: transparent;
+  border-radius: 0.5rem;
+  transition-property: color, background-color, border-color;
+  transition-duration: 200ms;
+  cursor: pointer;
+  width: 100%;
+  padding: 8px 16px !important;
+  margin: 1px 0 !important;
+  border: none;
+  background: transparent;
+  font-family: var(--font-sans);
+}
+
+.rct-tree-item-button:hover {
+  background-color: #F7FAFC;
+}
+
+/* Group Type Subtitle */
+.rct-tree-item-subtitle {
+  font-size: var(--font-size-sm);
+  color: #6B7280;
+  display: block;
+  margin-top: 0.25rem;
+}
+
+/* Selected Item Styling */
+.rct-tree-item-button[aria-selected="true"] {
+  background-color: var(--bgPrimary);
+  border: 1px solid var(--borderPrimary);
+}
+
+/* Change chevron color on selected items */
+.rct-tree-item-button[aria-selected="true"] .rct-tree-item-arrow-container svg {
+  color: var(--primary);
+}
+
+/* Fix the arrow container size and clickability */
+.rct-tree-item-arrow-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  width: 24px;
+  height: 24px;
+}
+
+.rct-tree-item-arrow-container svg {
+  color: var(--secondary);
+  width: 16px;
+  height: 16px;
+}
+
+/* Change chevron color for selected items */
+.rct-tree-item-title-container-selected svg {
+  color: var(--primary) !important;
+}
+
+/* Remove the previously added border since we're using the li element for the border now */
+.rct-tree-item-li[aria-selected="true"] {
+  border-left: 3px solid var(--primary);
+}
+
+/* Focused Item Styling */
+.rct-tree-item-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(13, 71, 116, 0.5);
+}
+
+/* Group name and type styling */
+.text-\[\#1E3A8A\] {
+  color: var(--primary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-tight);
+  font-weight: var(--font-weight-medium);
+}
+
+.text-\[\#64748B\] {
+  color: var(--secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+}
+
+/* Search Input Styling */
+.search-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background-color: #F7FAFC;
+  border: 1px solid #E2E8F0;
+  color: #4A5568;
+  font-weight: var(--font-weight-medium);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  box-sizing: border-box;
+}
+
+.search-input::placeholder {
+  color: #A0AEC0;
+}
+
+.search-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(13, 71, 116, 0.5);
+  border-color: transparent;
+}
+
+/* Context Menu Styling */
+.context-menu {
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  padding: 0.5rem 0;
+  min-width: 200px;
+  border: 1px solid var(--borderPrimary);
+  font-family: var(--font-sans);
+}
+
+.context-menu-item {
+  width: 100%;
+  padding: 0.625rem 1rem;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  transition-property: background-color;
+  transition-duration: 200ms;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+}
+
+.context-menu-item:hover {
+  background-color: #F7FAFC;
+}
+
+/* More Options Button - make visible when selected or on hover */
+.more-options {
+  opacity: 0;
+  padding: 0.375rem;
+  border-radius: 0.5rem;
+  transition-property: all;
+  transition-duration: 200ms;
+}
+
+.group:hover .more-options,
+.rct-tree-item-button[aria-selected="true"] .more-options {
+  opacity: 1;
+}
+
+.more-options:hover {
+  background-color: #F7FAFC;
+}
+
+/* Custom Divider */
+.tree-divider {
+  border-top: 1px solid var(--borderSeparator);
+  margin: 0.5rem 0;
+}
+
+/* Renaming state */
+.rct-tree-item-li-renaming {
+  z-index: 100;
+  position: relative;
+}
+
+.rct-tree-item-title-container-renaming {
+  background-color: #F7FAFC;
+  z-index: 100;
+  box-shadow: 0 0 0 2px rgba(13, 71, 116, 0.1);
+}
+
+/* Rename Input Styling */
+.rct-tree-item-renaming-input {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  border: 1px solid var(--primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-lg);
+  color: var(--primary);
+  background-color: white;
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+  position: relative;
+  z-index: 100;
+  box-sizing: border-box;
+  outline: none;
+  flex: 1;
+  min-width: 0;
+}
+
+.rct-tree-item-renaming-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--primary);
+  border-color: transparent;
+}
+
+/* Make sure search highlighting stands out */
+.rct-tree-item-search-highlight {
+  background-color: var(--accent);
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-weight: var(--font-weight-semibold);
+  color: black;
+}
+
+/* Search Container */
+.search-container {
+  position: sticky;
+  top: 0;
+  z-index: 99;
+  background-color: white;
+  padding: 0.75rem 0;
+  margin: -0.75rem 0 1.5rem 0;
+}
+
+.text-2xl { font-size: 1.5rem; line-height: 2rem; }
+.mt-1 { margin-top: 0.25rem; }
+
+/* Edit Modal Styles */
+.edit-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--bgOverlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.edit-modal {
+  background-color: white;
+  border-radius: 0.5rem;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.edit-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--borderSeparator);
+}
+
+.edit-modal-header h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--primary);
+  margin: 0;
+}
+
+.edit-modal-close {
+  background: transparent;
+  border: none;
+  color: var(--secondary);
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.25rem;
+}
+
+.edit-modal-close:hover {
+  background-color: var(--bgFields);
+}
+
+.edit-modal-body {
+  padding: 1.5rem;
+}
+
+.edit-form-group {
+  margin-bottom: 1.25rem;
+}
+
+.edit-form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--primary);
+  font-size: 0.875rem;
+}
+
+.edit-form-input,
+.edit-form-select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--borderPrimary);
+  border-radius: 0.375rem;
+  font-size: 1rem;
+  color: var(--primary);
+  background-color: white;
+}
+
+.edit-form-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%230D4774'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+  padding-right: 2.5rem;
+}
+
+.edit-form-input:focus,
+.edit-form-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(13, 71, 116, 0.2);
+}
+
+.edit-form-hint {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background-color: var(--bgFields);
+  border-radius: 0.375rem;
+  color: var(--primary);
+  font-size: 0.875rem;
+  font-style: italic;
+}
+
+.edit-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--borderSeparator);
+  gap: 1rem;
+}
+
+.edit-modal-cancel,
+.edit-modal-save {
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.edit-modal-cancel {
+  background-color: white;
+  border: 1px solid var(--borderPrimary);
+  color: var(--primary);
+}
+
+.edit-modal-save {
+  background-color: var(--primary);
+  border: 1px solid var(--primary);
+  color: white;
+}
+
+/* Empty State Styles */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  background-color: var(--bgSecondary);
+  border-radius: 0.5rem;
+  margin: 2rem 0;
+}
+
+.empty-state-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  background-color: var(--bgFields);
+  border-radius: 50%;
+  margin-bottom: 1.5rem;
+  color: var(--primary);
+}
+
+.empty-state-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 0.75rem;
+}
+
+.empty-state-description {
+  color: var(--secondary);
+  margin-bottom: 1.5rem;
+  max-width: 400px;
+}
+
+.empty-state-button,
+.add-group-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background-color: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.empty-state-button:hover,
+.add-group-button:hover {
+  background-color: #0a365a;
+}
+
+.empty-state-button:focus,
+.add-group-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(13, 71, 116, 0.4);
+}
+
+.add-group-button {
+  margin-bottom: 1rem;
+}
+
+/* Toggle Button Styles */
+.toggle-button {
+  display: flex;
+  align-items: center;
+  background-color: var(--bgFields);
+  border: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--primary);
+  transition: background-color 0.2s;
+}
+
+.toggle-button:hover {
+  background-color: rgba(13, 71, 116, 0.1);
+}
+
+.toggle-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(13, 71, 116, 0.2);
+}

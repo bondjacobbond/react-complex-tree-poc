@@ -25,7 +25,7 @@ npm run dev
 - React
 - TypeScript
 - react-complex-tree
-- lucide-react
+- lucide-react (just for da icons)
 
 ## Project Structure
 

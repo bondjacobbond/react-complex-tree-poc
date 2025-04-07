@@ -708,7 +708,7 @@ function App() {
                   ) : null}
                 </div>
               )}
-              renderItemTitle={({ item, title, context, info }) => {
+              renderItemTitle={({ item, title }) => {
                 // Check if this item matches the search term
                 const matchesSearch = searchTerm ? 
                   item.data.name.toLowerCase().includes(searchTerm.toLowerCase()) : 

@@ -66,19 +66,18 @@ function App() {
   
   // Handle converting an item to a folder when it receives a drop
   const handleItemDrop = useCallback((draggedItems: TreeItem<ItemData>[], target: DraggingPosition) => {
-    let targetItemWasConverted = false;
-    let targetItemId: TreeItemIndex | null = null;
-    
-    setItems(prevItems => {
-      const newItems = { ...prevItems };
+    // Store the converted item info for effect to use
+    if (target.targetType === 'item') {
+      const targetItemId = target.targetItem;
       
-      // If the drop target is an item (not between items)
-      if (target.targetType === 'item') {
-        const targetItem = newItems[target.targetItem];
-        targetItemId = target.targetItem;
+      setItems(prevItems => {
+        const newItems = { ...prevItems };
+        
+        // If the drop target is an item (not between items)
+        const targetItem = newItems[targetItemId];
         
         // Check if this item needs to be converted to a folder
-        targetItemWasConverted = targetItem && !targetItem.children;
+        const needsConversion = targetItem && !targetItem.children;
         
         // Initialize children array if it doesn't exist
         if (targetItem && !targetItem.children) {
@@ -89,25 +88,25 @@ function App() {
         if (targetItem && !targetItem.isFolder) {
           targetItem.isFolder = true;
         }
-      }
-      
-      return newItems;
-    });
-    
-    // If we converted a non-folder to a folder, we need to force update
-    if (targetItemWasConverted && targetItemId) {
-      // Force a refresh and ensure expansion
-      setTimeout(() => {
-        // Force the tree to update specifically for this item
-        if (dataProvider.onDidChangeTreeDataEmitter) {
-          dataProvider.onDidChangeTreeDataEmitter.emit([targetItemId as TreeItemIndex]);
+        
+        // If we converted a non-folder to a folder, set a flag to trigger update
+        if (needsConversion) {
+          // Use the next microtask to trigger updates after state changes
+          Promise.resolve().then(() => {
+            // Force the tree to update specifically for this item
+            if (dataProvider.onDidChangeTreeDataEmitter) {
+              dataProvider.onDidChangeTreeDataEmitter.emit([targetItemId]);
+            }
+            
+            // Expand the newly converted folder
+            if (treeRef.current) {
+              treeRef.current.expandItem(targetItemId);
+            }
+          });
         }
         
-        // Expand the newly converted folder
-        if (treeRef.current) {
-          treeRef.current.expandItem(targetItemId as TreeItemIndex);
-        }
-      }, 50);
+        return newItems;
+      });
     }
   }, [dataProvider, treeRef]);
 
@@ -242,13 +241,14 @@ function App() {
 
   const handleRename = (itemId: TreeItemIndex) => {
     closeContextMenu();
-    // Give a slight delay to ensure context menu is fully closed
-    setTimeout(() => {
+    
+    // Use requestAnimationFrame for UI-related timing instead of arbitrary setTimeout
+    requestAnimationFrame(() => {
       if (treeRef.current) {
         console.log("Starting rename for item", itemId);
         treeRef.current.startRenamingItem(itemId);
       }
-    }, 50);
+    });
   };
 
   const handleEdit = (itemId: TreeItemIndex) => {
@@ -294,26 +294,26 @@ function App() {
     
     closeContextMenu();
 
-    // Defer expansion and renaming to ensure state updates have been applied
-    setTimeout(() => {
+    // Use a promise chain for sequential operations after state updates
+    Promise.resolve().then(() => {
+      // First, ensure the parent is expanded
       if (treeRef.current) {
-        // Make sure the parent is expanded
         treeRef.current.expandItem(String(parentId));
         
-        // Wait a bit to ensure expansion has taken effect
-        setTimeout(() => {
+        // Force a refresh of the tree with the new item
+        if (dataProvider.onDidChangeTreeDataEmitter) {
+          dataProvider.onDidChangeTreeDataEmitter.emit([String(parentId), newId]);
+        }
+        
+        // Use requestAnimationFrame to ensure expansion has had time to render
+        requestAnimationFrame(() => {
           if (treeRef.current) {
             console.log("Starting rename for new item", newId);
-            // Force a refresh of the tree before starting rename
-            if (dataProvider.onDidChangeTreeDataEmitter) {
-              dataProvider.onDidChangeTreeDataEmitter.emit([String(parentId), newId]);
-            }
-            // Now start the rename operation
             treeRef.current.startRenamingItem(newId);
           }
-        }, 100);
+        });
       }
-    }, 50);
+    });
   };
 
   const handleDelete = (itemId: TreeItemIndex) => {
@@ -366,22 +366,29 @@ function App() {
     
     closeContextMenu();
 
-    // Wait for state update, then expand parent and start renaming
-    setTimeout(() => {
+    // Use a promise chain for sequential operations after state updates
+    Promise.resolve().then(() => {
       const parentId = Object.keys(items).find(key => 
         items[key].children?.includes(String(itemId))
       );
       
       if (parentId && treeRef.current) {
         treeRef.current.expandItem(parentId);
-        setTimeout(() => {
+        
+        // Ensure data provider knows about the update
+        if (dataProvider.onDidChangeTreeDataEmitter) {
+          dataProvider.onDidChangeTreeDataEmitter.emit([parentId, newId]);
+        }
+        
+        // Use requestAnimationFrame to ensure expansion has had time to render
+        requestAnimationFrame(() => {
           if (treeRef.current) {
             console.log("Starting rename for duplicated item", newId);
             treeRef.current.startRenamingItem(newId);
           }
-        }, 100);
+        });
       }
-    }, 100);
+    });
   };
 
   // Helper function to deep copy an item and all its children

@@ -383,9 +383,50 @@ Our styling follows these principles:
 
 Several strategies help maintain performance:
 1. **Targeted updates**: We emit changes only for affected items when possible
-2. **Deferred operations**: Critical UI updates use small timeouts to ensure state updates complete
+2. **Proper sequencing**: We use modern JavaScript features like Promises and requestAnimationFrame for sequential operations
 3. **Efficient rendering**: Custom render functions focus on rendering only what's needed
 4. **Memoization**: Key functions use `useCallback` to prevent unnecessary re-renders
+
+### Handling State Updates and UI Operations
+
+Instead of using arbitrary timeouts (which can be brittle and lead to race conditions), we use a more structured approach for operations that need to happen after state updates:
+
+```typescript
+// Example: Adding a subgroup with proper sequencing
+const handleAddSubGroup = (parentId: TreeItemIndex) => {
+  // First update the state
+  setItems(prevItems => {
+    // State update implementation...
+    return newItems;
+  });
+  
+  // Use microtask scheduling to run after the state update completes
+  Promise.resolve().then(() => {
+    // Operations that should happen after state update
+    if (treeRef.current) {
+      treeRef.current.expandItem(String(parentId));
+      
+      // Force refresh the data provider if needed
+      if (dataProvider.onDidChangeTreeDataEmitter) {
+        dataProvider.onDidChangeTreeDataEmitter.emit([parentId, newId]);
+      }
+      
+      // Use requestAnimationFrame for operations that need to happen after the UI has updated
+      requestAnimationFrame(() => {
+        if (treeRef.current) {
+          treeRef.current.startRenamingItem(newId);
+        }
+      });
+    }
+  });
+};
+```
+
+This approach provides several benefits:
+- More predictable behavior than arbitrary timeouts
+- Better performance by using native browser scheduling mechanisms
+- Follows React's mental model for handling side effects
+- Reduces the chance of race conditions and timing issues
 
 ## Accessibility Considerations
 
@@ -405,10 +446,15 @@ Future developers can extend this implementation by:
 
 ## Common Gotchas and Solutions
 
-1. **State Update Timing**: Operations that depend on state updates should use small timeouts (50-100ms) to ensure the state has been updated
-2. **Tree Refresh**: After structural changes, force a refresh with `dataProvider.onDidChangeTreeDataEmitter.emit()`
-3. **Selection Behavior**: The custom selection behavior overrides default library behavior
-4. **Children Array**: Always initialize the children array as an empty array, never as undefined
+1. **State Update Sequencing**: React state updates are asynchronous. Use `Promise.resolve().then()` for operations that should run after state updates complete, rather than arbitrary timeouts.
+
+2. **UI Update Sequencing**: For operations that need to happen after the UI has rendered, use `requestAnimationFrame()` instead of arbitrary timeouts.
+
+3. **Tree Refresh**: After structural changes, force a refresh with `dataProvider.onDidChangeTreeDataEmitter.emit()` with specific item IDs to minimize re-renders.
+
+4. **Selection Behavior**: The custom selection behavior overrides default library behavior.
+
+5. **Children Array**: Always initialize the children array as an empty array, never as undefined.
 
 ## Conclusion
 

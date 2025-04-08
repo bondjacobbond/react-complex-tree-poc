@@ -118,6 +118,28 @@ function App() {
     return !rootItem || !rootItem.children || rootItem.children.length === 0;
   }, [items, showEmptyState]);
 
+  // Function to check if any child items match the search term (recursively)
+  const hasMatchingChildren = useCallback((itemId: TreeItemIndex, term: string): boolean => {
+    if (!term) return false;
+    
+    const item = items[String(itemId)];
+    if (!item || !item.children || item.children.length === 0) return false;
+    
+    // Check each child
+    return item.children.some(childId => {
+      const childItem = items[String(childId)];
+      if (!childItem) return false;
+      
+      // Check if this child matches
+      const childMatches = childItem.data?.name.toLowerCase().includes(term.toLowerCase());
+      
+      // Or if any of its descendants match (recursive)
+      const descendantsMatch = hasMatchingChildren(childId, term);
+      
+      return childMatches || descendantsMatch;
+    });
+  }, [items]);
+
   // Update data provider when items change
   useEffect(() => {
     // Notify data provider that items have changed
@@ -205,9 +227,95 @@ function App() {
     const value = e.target.value;
     setSearchTerm(value);
     
-    // Since we can't directly call search/clearSearch via treeRef, we'll just update the searchTerm
-    // The highlighting will be handled in renderItemTitle
-  }, []);
+    if (treeRef.current) {
+      if (value) {
+        // Get all folder items
+        const folderItems = Object.keys(items).filter(id => 
+          items[id].children && items[id].children!.length > 0
+        );
+        
+        // Find folders that have matching children
+        const foldersWithMatches = folderItems.filter(id => 
+          hasMatchingChildren(id, value)
+        );
+        
+        // Automatically expand these folders to reveal matches
+        foldersWithMatches.forEach(id => {
+          treeRef.current?.expandItem(id);
+        });
+
+        // Find the first direct match
+        const directMatches = Object.keys(items).filter(id => 
+          items[id].data.name.toLowerCase().includes(value.toLowerCase())
+        );
+        
+        // Find the first child match in an expanded folder
+        let firstChildMatch: string | null = null;
+        for (const folderId of foldersWithMatches) {
+          const folder = items[folderId];
+          if (folder.children) {
+            for (const childId of folder.children) {
+              const child = items[String(childId)];
+              if (child && child.data.name.toLowerCase().includes(value.toLowerCase())) {
+                firstChildMatch = String(childId);
+                break;
+              }
+            }
+            if (firstChildMatch) break;
+          }
+        }
+        
+        // Scroll to the first match
+        setTimeout(() => {
+          // First try direct matches, then child matches
+          const firstMatchId = directMatches.length > 0 ? directMatches[0] : 
+                              firstChildMatch ? firstChildMatch : null;
+          
+          if (firstMatchId) {
+            // Find the element to scroll to
+            const element = document.querySelector(`[data-rct-item-id="${firstMatchId}"]`);
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }
+        }, 100); // Small delay to ensure DOM has updated
+      } else {
+        // When search is cleared, restore the default expanded state
+        const defaultExpanded = ['root', 'monday', 'wednesday', 'friday'];
+        
+        // Collapse all items except for default expanded ones
+        Object.keys(items).forEach(id => {
+          if (!defaultExpanded.includes(id)) {
+            treeRef.current?.collapseItem(id);
+          }
+        });
+      }
+    }
+  }, [items, hasMatchingChildren]);
+
+  // Clear search
+  const clearSearch = useCallback(() => {
+    setSearchTerm('');
+    
+    // Collapse all items to default state
+    if (treeRef.current) {
+      const defaultExpanded = ['root', 'monday', 'wednesday', 'friday'];
+      
+      Object.keys(items).forEach(id => {
+        if (!defaultExpanded.includes(id)) {
+          treeRef.current?.collapseItem(id);
+        } else {
+          treeRef.current?.expandItem(id);
+        }
+      });
+      
+      // Scroll back to the top of the tree
+      const treeElement = document.querySelector('.rct-tree-root');
+      if (treeElement) {
+        treeElement.scrollTop = 0;
+      }
+    }
+  }, [items]);
 
   // Focus search input on keyboard shortcut (/)
   useEffect(() => {
@@ -758,6 +866,15 @@ function App() {
             value={searchTerm}
             onChange={handleSearch}
           />
+          {searchTerm ? (
+            <button 
+              className="absolute right-12 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-200" 
+              onClick={clearSearch}
+              aria-label="Clear search"
+            >
+              <X className="w-4 h-4 text-gray-500" />
+            </button>
+          ) : null}
           <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
         </div>
         
@@ -814,16 +931,29 @@ function App() {
                   item.data.name.toLowerCase().includes(searchTerm.toLowerCase()) : 
                   false;
                 
+                // Check if any children match the search term when this is a folder
+                const childrenMatchSearch = searchTerm && item.children && item.children.length > 0 ? 
+                  hasMatchingChildren(item.index, searchTerm) : 
+                  false;
+                
+                // Determine styling based on direct match or child matches
+                const titleClassName = `text-lg ${matchesSearch ? "font-semibold" : ""} ${childrenMatchSearch ? "text-primary font-semibold border-b border-dashed border-primary" : ""}`;
+                
                 return (
                   <div 
                     className="flex items-center justify-between w-full group"
                     onContextMenu={(e) => handleContextMenu(e, item.index)}
                   >
                     <div className="flex flex-col py-0.5">
-                      <span className={`text-lg ${matchesSearch ? "font-semibold" : ""}`}>
+                      <span className={titleClassName}>
                         {searchTerm && matchesSearch
                           ? highlightSearchMatch(title, searchTerm) 
                           : title}
+                        {childrenMatchSearch && !matchesSearch && (
+                          <span className="text-primary-light">
+                            contains matches
+                          </span>
+                        )}
                       </span>
                       <span className="text-secondary text-primary">
                         {item.data.type}

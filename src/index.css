@@ -352,6 +352,11 @@ html, body, input, button, select, textarea {
   margin-left: 0.5rem;
 }
 
+/* Invisible placeholder for consistent spacing */
+.visibility-hidden {
+  visibility: hidden;
+}
+
 /* Search Container */
 .search-container {
   position: sticky;

@@ -922,7 +922,11 @@ function App() {
                     ) : (
                       <ChevronRight className="w-3.5 h-3.5 text-secondary" />
                     )
-                  ) : null}
+                  ) : (
+                    <div className="w-3.5 h-3.5 visibility-hidden" aria-hidden="true">
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </div>
+                  )}
                 </div>
               )}
               renderItemTitle={({ item, title }) => {

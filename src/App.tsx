@@ -65,7 +65,7 @@ function App() {
   );
   
   // Handle converting an item to a folder when it receives a drop
-  const handleItemDrop = useCallback((draggedItems: TreeItem<ItemData>[], target: DraggingPosition) => {
+  const handleItemDrop = useCallback((_draggedItems: TreeItem<ItemData>[], target: DraggingPosition) => {
     // Store the converted item info for effect to use
     if (target.targetType === 'item') {
       const targetItemId = target.targetItem;
@@ -128,7 +128,6 @@ function App() {
 
   // Handle rename item - update the state with the new name
   const handleRenameItem = (item: LeagueItem, newName: string) => {
-    console.log("Renaming item", item.index, "to", newName);
     setItems(prevItems => {
       const newItems = { ...prevItems };
       if (newItems[item.index]) {
@@ -245,7 +244,6 @@ function App() {
     // Use requestAnimationFrame for UI-related timing instead of arbitrary setTimeout
     requestAnimationFrame(() => {
       if (treeRef.current) {
-        console.log("Starting rename for item", itemId);
         treeRef.current.startRenamingItem(itemId);
       }
     });
@@ -308,7 +306,6 @@ function App() {
         // Use requestAnimationFrame to ensure expansion has had time to render
         requestAnimationFrame(() => {
           if (treeRef.current) {
-            console.log("Starting rename for new item", newId);
             treeRef.current.startRenamingItem(newId);
           }
         });
@@ -383,7 +380,6 @@ function App() {
         // Use requestAnimationFrame to ensure expansion has had time to render
         requestAnimationFrame(() => {
           if (treeRef.current) {
-            console.log("Starting rename for duplicated item", newId);
             treeRef.current.startRenamingItem(newId);
           }
         });

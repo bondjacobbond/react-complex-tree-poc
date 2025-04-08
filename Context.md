@@ -126,8 +126,8 @@ const handleItemDrop = useCallback((_draggedItems: TreeItem<ItemData>[], target:
         });
       }
       
-      return newItems;
-    });
+    return newItems;
+  });
   }
 }, [dataProvider, treeRef]);
 ```
@@ -543,10 +543,18 @@ This approach provides several benefits:
 ## Accessibility Considerations
 
 The implementation maintains accessibility through:
-1. Proper keyboard navigation support
-2. ARIA attributes for selected state
+1. Proper keyboard navigation support including:
+   - Arrow keys for navigation (Up/Down to move between items, Left/Right to collapse/expand folders)
+   - Home/End keys to jump to beginning/end of the tree
+   - Enter to select/activate an item
+   - F2 key to rename the selected item
+   - Forward slash (/) keyboard shortcut to access search
+   - Escape to cancel operations like renaming
+2. ARIA attributes for selected state (`aria-selected="true"`)
 3. Focus management for actions like renaming
 4. Sufficient color contrast and visual feedback
+5. Support for keyboard-only interactions for all operations (selection, editing, navigation)
+6. Screen reader compatibility with appropriate ARIA roles
 
 ## Extension Points
 
@@ -555,6 +563,42 @@ Future developers can extend this implementation by:
 2. Extending the context menu with additional actions
 3. Implementing drag-and-drop restrictions based on item types
 4. Adding custom icons or visual treatments for different item types
+5. Adding toggles for testing or demonstration purposes, as implemented with the empty state toggle
+
+### Toggle Features
+
+The implementation includes a toggle feature for testing specific states:
+
+```typescript
+// Toggle empty state for testing
+const toggleEmptyState = () => {
+  setShowEmptyState(!showEmptyState);
+};
+
+// Toggle button implementation
+<div className="mt-4 flex items-center">
+  <button 
+    className="toggle-button"
+    onClick={(e) => {
+      e.stopPropagation();
+      toggleEmptyState();
+    }}
+  >
+    {showEmptyState ? (
+      <ToggleRight className="h-6 w-6 text-primary" />
+    ) : (
+      <ToggleLeft className="h-6 w-6 text-secondary" />
+    )}
+    <span className="ml-2">Test Empty State</span>
+  </button>
+</div>
+```
+
+This pattern can be extended to add other testing toggles as needed, such as:
+- Toggle for read-only mode
+- Toggle for compact/expanded view
+- Toggle for different visual themes
+- Toggle for performance testing mode with large datasets
 
 ## Common Gotchas and Solutions
 

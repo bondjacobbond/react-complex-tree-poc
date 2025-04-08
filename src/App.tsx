@@ -915,16 +915,29 @@ function App() {
               // @ts-ignore - The UncontrolledTreeEnvironment supports selectBehavior but TypeScript doesn't recognize it
               selectBehavior={customSelectBehavior}
               renderItemArrow={({ item, context }) => (
-                <div className="w-5 h-5 flex items-center justify-center">
+                <div 
+                  className={`chevron-container ${item.children && item.children.length > 0 ? 'chevron-visible' : 'chevron-hidden'}`}
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent triggering selection
+                    if (item.children && item.children.length > 0) {
+                      if (context.isExpanded) {
+                        treeRef.current?.collapseItem(item.index);
+                      } else {
+                        treeRef.current?.expandItem(item.index);
+                      }
+                    }
+                  }}
+                  data-testid="chevron-container"
+                >
                   {item.children && item.children.length > 0 ? (
                     context.isExpanded ? (
-                      <ChevronDown className="w-3.5 h-3.5 text-secondary" />
+                      <ChevronDown className="w-4 h-4 text-secondary" />
                     ) : (
-                      <ChevronRight className="w-3.5 h-3.5 text-secondary" />
+                      <ChevronRight className="w-4 h-4 text-secondary" />
                     )
                   ) : (
-                    <div className="w-3.5 h-3.5 visibility-hidden" aria-hidden="true">
-                      <ChevronRight className="w-3.5 h-3.5" />
+                    <div className="w-4 h-4 visibility-hidden" aria-hidden="true">
+                      <ChevronRight className="w-4 h-4" />
                     </div>
                   )}
                 </div>

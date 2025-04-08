@@ -114,7 +114,7 @@ html, body, input, button, select, textarea {
   border-left: 3px solid var(--primary);
 }
 
-/* Avoid double-styling selected items */
+/* Avoid double-styling selected items and add more left padding */
 .rct-tree-item-li[aria-selected="true"] > .rct-tree-item-title-container {
   padding-left: calc(0.75rem - 3px);
 }
@@ -176,13 +176,31 @@ html, body, input, button, select, textarea {
 }
 
 /* Fix the arrow container size and clickability */
+.chevron-container,
 .rct-tree-item-arrow-container {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px;
-  width: 24px;
-  height: 24px;
+  padding: 6px;
+  width: 36px;
+  height: 36px;
+  margin-right: 8px; /* Increased space between chevron and content */
+  transition: background-color 0.2s;
+  border-radius: 0.25rem;
+}
+
+/* Apply hover effect only to visible chevrons */
+.chevron-visible {
+  cursor: pointer;
+}
+
+.chevron-visible:hover {
+  background-color: rgba(13, 71, 116, 0.1);
+}
+
+/* No hover effects for hidden chevrons */
+.chevron-hidden {
+  cursor: default;
 }
 
 .rct-tree-item-arrow-container svg {
@@ -355,6 +373,7 @@ html, body, input, button, select, textarea {
 /* Invisible placeholder for consistent spacing */
 .visibility-hidden {
   visibility: hidden;
+  pointer-events: none; /* Disable mouse events */
 }
 
 /* Search Container */

@@ -867,15 +867,18 @@ function App() {
             onChange={handleSearch}
           />
           {searchTerm ? (
-            <button 
-              className="absolute right-12 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-200" 
+            <div 
+              className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer" 
               onClick={clearSearch}
               aria-label="Clear search"
+              role="button"
+              tabIndex={0}
             >
-              <X className="w-4 h-4 text-gray-500" />
-            </button>
-          ) : null}
-          <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <X className="w-4 h-4 text-gray-400" />
+            </div>
+          ) : (
+            <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+          )}
         </div>
         
         {isTreeEmpty() ? (

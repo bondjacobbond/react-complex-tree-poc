@@ -265,8 +265,8 @@ function App() {
           }
         }
         
-        // Scroll to the first match
-        setTimeout(() => {
+        // Use requestAnimationFrame instead of setTimeout for better sequencing
+        requestAnimationFrame(() => {
           // First try direct matches, then child matches
           const firstMatchId = directMatches.length > 0 ? directMatches[0] : 
                               firstChildMatch ? firstChildMatch : null;
@@ -278,7 +278,7 @@ function App() {
               element.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
           }
-        }, 100); // Small delay to ensure DOM has updated
+        });
       } else {
         // When search is cleared, restore the default expanded state
         const defaultExpanded = ['root', 'monday', 'wednesday', 'friday'];

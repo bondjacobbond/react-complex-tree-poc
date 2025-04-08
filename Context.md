@@ -86,20 +86,19 @@ When an item that wasn't previously a folder receives children (either through d
 
 ```typescript
 // Enhanced drop handler - convert non-folders to folders when needed
-const handleItemDrop = useCallback((draggedItems: TreeItem<ItemData>[], target: DraggingPosition) => {
-  let targetItemWasConverted = false;
-  let targetItemId: TreeItemIndex | null = null;
-  
-  setItems(prevItems => {
-    const newItems = { ...prevItems };
+const handleItemDrop = useCallback((_draggedItems: TreeItem<ItemData>[], target: DraggingPosition) => {
+  // Store the converted item info for effect to use
+  if (target.targetType === 'item') {
+    const targetItemId = target.targetItem;
     
-    // If the drop target is an item (not between items)
-    if (target.targetType === 'item') {
-      const targetItem = newItems[target.targetItem];
-      targetItemId = target.targetItem;
+    setItems(prevItems => {
+      const newItems = { ...prevItems };
+      
+      // If the drop target is an item (not between items)
+      const targetItem = newItems[targetItemId];
       
       // Check if this item needs to be converted to a folder
-      targetItemWasConverted = targetItem && !targetItem.children;
+      const needsConversion = targetItem && !targetItem.children;
       
       // Initialize children array if it doesn't exist
       if (targetItem && !targetItem.children) {
@@ -110,30 +109,31 @@ const handleItemDrop = useCallback((draggedItems: TreeItem<ItemData>[], target: 
       if (targetItem && !targetItem.isFolder) {
         targetItem.isFolder = true;
       }
-    }
-    
-    return newItems;
-  });
-  
-  // Force UI update for newly converted folders
-  if (targetItemWasConverted && targetItemId) {
-    setTimeout(() => {
-      // Update the tree data
-      if (dataProvider.onDidChangeTreeDataEmitter) {
-        dataProvider.onDidChangeTreeDataEmitter.emit([targetItemId as TreeItemIndex]);
+      
+      // If we converted a non-folder to a folder, set a flag to trigger update
+      if (needsConversion) {
+        // Use the next microtask to trigger updates after state changes
+        Promise.resolve().then(() => {
+          // Force the tree to update specifically for this item
+          if (dataProvider.onDidChangeTreeDataEmitter) {
+            dataProvider.onDidChangeTreeDataEmitter.emit([targetItemId]);
+          }
+          
+          // Expand the newly converted folder
+          if (treeRef.current) {
+            treeRef.current.expandItem(targetItemId);
+          }
+        });
       }
       
-      // Expand the newly converted folder
-      if (treeRef.current) {
-        treeRef.current.expandItem(targetItemId as TreeItemIndex);
-      }
-    }, 50);
+      return newItems;
+    });
   }
-}, []);
+}, [dataProvider, treeRef]);
 ```
 
 **Developer Notes**: 
-- The timeout (50ms) helps ensure state updates have completed before further operations
+- We use `Promise.resolve().then()` to ensure state updates have completed before further operations
 - We specifically emit changes for the converted item to minimize re-renders
 - Expanding newly converted folders provides immediate visual feedback to users
 
@@ -181,12 +181,35 @@ const handleAddSubGroup = (parentId: TreeItemIndex) => {
     
     return newItems;
   });
+  
+  closeContextMenu();
+
+  // Use a promise chain for sequential operations after state updates
+  Promise.resolve().then(() => {
+    // First, ensure the parent is expanded
+    if (treeRef.current) {
+      treeRef.current.expandItem(String(parentId));
+      
+      // Force a refresh of the tree with the new item
+      if (dataProvider.onDidChangeTreeDataEmitter) {
+        dataProvider.onDidChangeTreeDataEmitter.emit([String(parentId), newId]);
+      }
+      
+      // Use requestAnimationFrame to ensure expansion has had time to render
+      requestAnimationFrame(() => {
+        if (treeRef.current) {
+          treeRef.current.startRenamingItem(newId);
+        }
+      });
+    }
+  });
+};
 ```
 
 **UX Considerations**:
 - Adding the new item at the beginning of the children array (rather than the end) makes it immediately visible
 - Automatically entering edit mode streamlines the workflow
-- Forcing necessary tree refreshes ensures consistent behavior
+- Using `Promise.resolve().then()` and `requestAnimationFrame()` for proper sequencing ensures reliable behavior
 
 ### 3. Deep Duplication
 
@@ -201,16 +224,16 @@ Our implementation supports recursively duplicating items and their entire subtr
 const deepCopyItem = (item: LeagueItem, newId: string, allItems: Record<TreeItemIndex, LeagueItem>): LeagueItem => {
   // Create a new copy with the specified ID
   const newItem: LeagueItem = {
-    index: newId,
+        index: newId,
     isFolder: item.isFolder,
-    data: {
+        data: {
       name: `${item.data.name} (Copy)`,
       type: item.data.type
-    },
-    canMove: true,
-    canRename: true
-  };
-  
+        },
+        canMove: true,
+        canRename: true
+      };
+
   // If the original item has children, copy them recursively
   if (item.children && item.children.length > 0) {
     newItem.children = [];
@@ -259,12 +282,12 @@ const renderContextMenu = () => {
       className="context-menu fixed z-50"
       style={{ top: contextMenu.y, left: contextMenu.x }}
     >
-      <button 
-        className="context-menu-item"
-        onClick={() => handleAddSubGroup(contextMenu.itemId)}
-      >
-        Add Sub-Group
-      </button>
+        <button 
+          className="context-menu-item"
+          onClick={() => handleAddSubGroup(contextMenu.itemId)}
+        >
+          Add Sub-Group
+        </button>
       <button 
         className="context-menu-item"
         onClick={() => handleEdit(contextMenu.itemId)}
@@ -325,33 +348,122 @@ const customSelectBehavior = {
 
 ### 6. Search Implementation
 
-The search feature allows users to find items by name:
+The search feature allows users to find items by name and highlights matches:
 
 ```typescript
-// Search functionality
-doesSearchMatchItem={(searchText, item) => {
-  if (!searchText || !item?.data?.name) return false;
-  return item.data.name.toLowerCase().includes(searchText.toLowerCase());
-}}
+// Search functionality with automatic folder expansion
+const handleSearch = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const value = e.target.value;
+  setSearchTerm(value);
+  
+  if (treeRef.current) {
+    if (value) {
+      // Get all folder items
+      const folderItems = Object.keys(items).filter(id => 
+        items[id].children && items[id].children!.length > 0
+      );
+      
+      // Find folders that have matching children
+      const foldersWithMatches = folderItems.filter(id => 
+        hasMatchingChildren(id, value)
+      );
+      
+      // Automatically expand these folders to reveal matches
+      foldersWithMatches.forEach(id => {
+        treeRef.current?.expandItem(id);
+      });
 
-// Keyboard shortcut support
-useEffect(() => {
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === '/' && searchInputRef.current) {
-      e.preventDefault();
-      searchInputRef.current.focus();
+      // Find the first direct match
+      const directMatches = Object.keys(items).filter(id => 
+        items[id].data.name.toLowerCase().includes(value.toLowerCase())
+      );
+      
+      // Find the first child match in an expanded folder
+      let firstChildMatch = null;
+      for (const folderId of foldersWithMatches) {
+        const folder = items[folderId];
+        if (folder.children) {
+          for (const childId of folder.children) {
+            const child = items[String(childId)];
+            if (child && child.data.name.toLowerCase().includes(value.toLowerCase())) {
+              firstChildMatch = String(childId);
+              break;
+            }
+          }
+          if (firstChildMatch) break;
+        }
+      }
+      
+      // Scroll to the first match using requestAnimationFrame to ensure DOM is updated
+      requestAnimationFrame(() => {
+        // First try direct matches, then child matches
+        const firstMatchId = directMatches.length > 0 ? directMatches[0] : 
+                            firstChildMatch ? firstChildMatch : null;
+        
+        if (firstMatchId) {
+          // Find the element to scroll to
+          const element = document.querySelector(`[data-rct-item-id="${firstMatchId}"]`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      });
+    } else {
+      // When search is cleared, restore the default expanded state
+      const defaultExpanded = ['root', 'monday', 'wednesday', 'friday'];
+      
+      // Collapse all items except for default expanded ones
+      Object.keys(items).forEach(id => {
+        if (!defaultExpanded.includes(id)) {
+          treeRef.current?.collapseItem(id);
+        } else {
+          treeRef.current?.expandItem(id);
+        }
+      });
+      
+      // Scroll back to the top of the tree
+      const treeElement = document.querySelector('.rct-tree-root');
+      if (treeElement) {
+        treeElement.scrollTop = 0;
+      }
     }
-  };
+  }
+}, [items, hasMatchingChildren]);
 
-  document.addEventListener('keydown', handleKeyDown);
-  return () => {
-    document.removeEventListener('keydown', handleKeyDown);
-  };
-}, []);
+// Highlight search matches in item titles
+renderItemTitle={({ item, title }) => {
+  // Check if this item matches the search term
+  const matchesSearch = searchTerm ? 
+    item.data.name.toLowerCase().includes(searchTerm.toLowerCase()) : 
+    false;
+  
+  // Check if any children match the search term when this is a folder
+  const childrenMatchSearch = searchTerm && item.children && item.children.length > 0 ? 
+    hasMatchingChildren(item.index, searchTerm) : 
+    false;
+  
+  return (
+    <div>
+      <span>
+        {searchTerm && matchesSearch
+          ? highlightSearchMatch(title, searchTerm) 
+          : title}
+        {childrenMatchSearch && !matchesSearch && (
+          <span className="text-primary-light">
+            contains matches
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}}
 ```
 
 **UX Enhancements**:
 - We highlight the search matches in the tree items
+- Show "contains matches" indicator for parent folders with matching children
+- Automatically expand folders containing matches for easier discovery
+- Auto-scroll to the first match for immediate visibility
 - The '/' keyboard shortcut provides quick access to search
 - Case-insensitive matching improves search effectiveness
 
@@ -598,3 +710,281 @@ const MySidebarTree = () => {
 ```
 
 This pattern provides a flexible foundation for integrating the tree component into a larger design system while maintaining the core functionality and user experience described in this document.
+
+## Testing Strategy
+
+Testing a complex tree component requires a comprehensive approach to ensure functionality across various levels of interaction. Here's a recommended testing strategy:
+
+### 1. Unit Testing Core Functions
+
+Start by testing the pure utility functions that don't rely on React's rendering cycle:
+
+```typescript
+// Example unit test for the hasMatchingChildren function
+describe('hasMatchingChildren', () => {
+  const mockItems = {
+    'root': { index: 'root', children: ['folder1', 'folder2'], data: { name: 'Root', type: 'Conference' } },
+    'folder1': { index: 'folder1', children: ['item1'], data: { name: 'Folder 1', type: 'Division' } },
+    'folder2': { index: 'folder2', children: [], data: { name: 'Folder 2', type: 'Division' } },
+    'item1': { index: 'item1', data: { name: 'Search Target', type: 'Team' } }
+  };
+
+  it('should find matches in children', () => {
+    const result = hasMatchingChildren('root', 'Target', mockItems);
+    expect(result).toBe(true);
+  });
+
+  it('should return false when no matches exist', () => {
+    const result = hasMatchingChildren('folder2', 'Target', mockItems);
+    expect(result).toBe(false);
+  });
+});
+```
+
+### 2. Component Testing with React Testing Library
+
+Test individual subcomponents to ensure they render and behave correctly:
+
+```typescript
+// Example test for TreeItem component
+describe('TreeItem', () => {
+  it('renders correctly with basic props', () => {
+    const { getByText } = render(
+      <TreeItem 
+        item={{ index: 'test', data: { name: 'Test Item', type: 'Team' } }} 
+      />
+    );
+    
+    expect(getByText('Test Item')).toBeInTheDocument();
+    expect(getByText('Team')).toBeInTheDocument();
+  });
+
+  it('shows expansion arrow only for folders', () => {
+    const { queryByTestId } = render(
+      <TreeItem 
+        item={{ index: 'test', data: { name: 'Test Item', type: 'Team' } }} 
+      />
+    );
+    
+    expect(queryByTestId('expand-arrow')).not.toBeInTheDocument();
+    
+    const { getByTestId } = render(
+      <TreeItem 
+        item={{ 
+          index: 'folder', 
+          children: ['child1'], 
+          data: { name: 'Folder', type: 'Division' } 
+        }} 
+      />
+    );
+    
+    expect(getByTestId('expand-arrow')).toBeInTheDocument();
+  });
+});
+```
+
+### 3. Integration Testing
+
+Test interactions between components and state updates:
+
+```typescript
+describe('Tree interactions', () => {
+  it('expands a folder when clicked', async () => {
+    const user = userEvent.setup();
+    const { getByText, queryByText } = render(<TreeComponent data={mockTreeData} />);
+    
+    // Child item should not be visible initially
+    expect(queryByText('Child Item')).not.toBeInTheDocument();
+    
+    // Click the expand arrow
+    await user.click(getByText('Folder').previousSibling);
+    
+    // Child should now be visible
+    expect(getByText('Child Item')).toBeInTheDocument();
+  });
+
+  it('shows context menu on right-click', async () => {
+    const user = userEvent.setup();
+    const { getByText, queryByText } = render(<TreeComponent data={mockTreeData} />);
+    
+    // Context menu should not be visible initially
+    expect(queryByText('Add Sub-Group')).not.toBeInTheDocument();
+    
+    // Right-click on an item
+    await user.pointer({ keys: '[MouseRight]', target: getByText('Folder') });
+    
+    // Context menu should appear
+    expect(getByText('Add Sub-Group')).toBeInTheDocument();
+  });
+});
+```
+
+### 4. Search and Filter Testing
+
+Test the search functionality specifically:
+
+```typescript
+describe('Tree search', () => {
+  it('highlights matches when searching', async () => {
+    const user = userEvent.setup();
+    const { getByRole, getByText } = render(<TreeComponent data={mockTreeData} />);
+    
+    // Enter search term
+    await user.type(getByRole('textbox'), 'target');
+    
+    // Check that matches are highlighted
+    const highlightedElement = getByText('Target').querySelector('.rct-tree-item-search-highlight');
+    expect(highlightedElement).toBeInTheDocument();
+  });
+
+  it('shows "contains matches" for parent folders', async () => {
+    const user = userEvent.setup();
+    const { getByRole, getByText } = render(<TreeComponent data={mockTreeData} />);
+    
+    // Enter search term that matches a deeply nested item
+    await user.type(getByRole('textbox'), 'nested');
+    
+    // Parent should indicate it contains matches
+    expect(getByText('contains matches')).toBeInTheDocument();
+  });
+});
+```
+
+### 5. Drag and Drop Testing
+
+Test drag and drop operations using the specialized APIs:
+
+```typescript
+describe('Tree drag and drop', () => {
+  it('converts an item to a folder when another item is dropped on it', async () => {
+    const { getByText, queryByTestId } = render(<TreeComponent data={mockTreeData} />);
+    
+    // Get source and target elements
+    const sourceItem = getByText('Item 1');
+    const targetItem = getByText('Item 2');
+    
+    // Initially, target should not have an expand arrow (not a folder)
+    expect(queryByTestId('expand-arrow-item-2')).not.toBeInTheDocument();
+    
+    // Simulate drag and drop
+    fireEvent.dragStart(sourceItem);
+    fireEvent.dragOver(targetItem);
+    fireEvent.drop(targetItem);
+    
+    // After drop, target should have been converted to a folder
+    expect(queryByTestId('expand-arrow-item-2')).toBeInTheDocument();
+  });
+});
+```
+
+### 6. Accessibility Testing
+
+Ensure the component is accessible:
+
+```typescript
+describe('Tree accessibility', () => {
+  it('supports keyboard navigation', async () => {
+    const user = userEvent.setup();
+    const { getByRole, getByText } = render(<TreeComponent data={mockTreeData} />);
+    
+    // Focus the tree
+    getByRole('tree').focus();
+    
+    // Navigate using arrow keys
+    await user.keyboard('{ArrowDown}');
+    
+    // First item should be focused
+    expect(document.activeElement).toHaveTextContent('Folder 1');
+    
+    // Try to expand the focused folder
+    await user.keyboard('{ArrowRight}');
+    
+    // Folder should expand and reveal children
+    expect(getByText('Child Item')).toBeInTheDocument();
+  });
+
+  it('meets accessibility standards', async () => {
+    const { container } = render(<TreeComponent data={mockTreeData} />);
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+});
+```
+
+### 7. Performance Testing
+
+Test the component's performance, especially with large datasets:
+
+```typescript
+describe('Tree performance', () => {
+  it('renders large trees efficiently', () => {
+    // Generate a large tree with 1000 items
+    const largeTree = generateLargeTreeData(1000);
+    
+    // Measure render time
+    const start = performance.now();
+    render(<TreeComponent data={largeTree} />);
+    const end = performance.now();
+    
+    // Render should complete within a reasonable time (e.g., 500ms)
+    expect(end - start).toBeLessThan(500);
+  });
+
+  it('handles search efficiently in large trees', async () => {
+    const user = userEvent.setup();
+    const largeTree = generateLargeTreeData(1000);
+    
+    const { getByRole } = render(<TreeComponent data={largeTree} />);
+    
+    // Time the search operation
+    const start = performance.now();
+    await user.type(getByRole('textbox'), 'rare-term');
+    const end = performance.now();
+    
+    // Search should complete within a reasonable time
+    expect(end - start).toBeLessThan(200);
+  });
+});
+```
+
+### 8. Snapshot Testing
+
+Use snapshots to catch unexpected changes in component rendering:
+
+```typescript
+describe('Tree snapshots', () => {
+  it('matches snapshot for default state', () => {
+    const { asFragment } = render(<TreeComponent data={mockTreeData} />);
+    expect(asFragment()).toMatchSnapshot();
+  });
+
+  it('matches snapshot with expanded folders', async () => {
+    const user = userEvent.setup();
+    const { asFragment, getByText } = render(<TreeComponent data={mockTreeData} />);
+    
+    // Expand a folder
+    await user.click(getByText('Folder').previousSibling);
+    
+    expect(asFragment()).toMatchSnapshot();
+  });
+});
+```
+
+### 9. Mocking Considerations
+
+When testing the tree component, you'll need to mock several dependencies:
+
+- **Data Provider**: Mock the API responses for tree data
+- **Event Handlers**: Test that event handlers are called with correct arguments
+- **Browser APIs**: Mock DOM methods like `scrollIntoView` for testing scroll behavior
+- **Context Providers**: Wrap components in necessary context providers during testing
+
+### 10. Testing in Isolation vs. Integration
+
+Balance your testing strategy between:
+
+- **Isolated Component Testing**: Testing individual components with mocked dependencies
+- **Integration Testing**: Testing how components work together in realistic scenarios
+- **End-to-End Testing**: Using tools like Cypress to test the complete user journey
+
+This comprehensive testing approach ensures that your tree component remains robust, performant, and accessible as it evolves within your component library.
